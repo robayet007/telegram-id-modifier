@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+telethon
+motor
+python-jose[cryptography]
+passlib[argon2]
+pydantic
+python-dotenv
+cryptography

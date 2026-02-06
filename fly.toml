@@ -1,0 +1,18 @@
+# fly.toml app configuration file generated for telegram-bot-system on 2026-01-26T22:53:45+06:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'telegram-bot-system'
+primary_region = 'bom'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[processes]
+  app = 'python main.py'
+
+[[vm]]
+  memory = '1gb'
+  cpus = 1
+  memory_mb = 1024

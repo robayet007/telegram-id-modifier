@@ -1,0 +1,5 @@
+[2026-01-26 22:48:14] ✅ Logged in as: Robayet ❤️ (@robayet404)
+[2026-01-26 22:48:14] 🚀 Auto-reply system is now running!
+[2026-01-26 22:48:42] 📩 Message from user 5177792670
+[2026-01-26 22:48:52] ❌ Error checking replies: Could not find the input entity for PeerUser(user_id=5177792670) (PeerUser). Please read https://docs.telethon.dev/en/stable/concepts/entities.html to find out more details.
+[2026-01-26 22:48:52] ❌ Failed to send reply: Could not find the input entity for PeerUser(user_id=5177792670) (PeerUser). Please read https://docs.telethon.dev/en/stable/concepts/entities.html to find out more details.
