@@ -29,6 +29,4 @@ SLEEP_END_HOUR = 8     # সকাল ৮টা
 # যাদেরকে অটো-রিপ্লাই দেবে না
 EXCLUDED_USERS = []  # খালি রাখুন, পরে যোগ করতে পারেন
 
-# ===== লগিং সেটিংস =====
-LOG_TO_FILE = True
-LOG_FILE = 'bot_log.txt'
+# লগিং শুধুমাত্র কনসোলে হবে (Logging to console only)

@@ -1,33 +1,31 @@
 const API_BASE = '/api/admin';
 
-// DOM Ready
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('Admin panel loaded');
-    initModalEvents();
-    checkAuthStatus();
-});
-
-// Initialize modal events
-function initModalEvents() {
-    const modal = document.getElementById('details-modal');
-
-    // Close modal when clicking outside
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            closeModal();
-        }
-    });
-
-    // Close modal with Escape key
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            closeModal();
-        }
-    });
+function getHeaders() {
+    return {
+        'Content-Type': 'application/json'
+    };
 }
 
-// Check authentication status
-async function checkAuthStatus() {
+async function fetchWithAuth(url, options = {}) {
+    if (!options.headers) options.headers = getHeaders();
+    else Object.assign(options.headers, getHeaders());
+
+    const response = await fetch(url, options);
+
+    if (response.status === 401) {
+        const setupRes = await fetch(`${API_BASE}/setup-check`);
+        const setupData = await setupRes.json();
+        if (setupData.setup_required) {
+            return response;
+        }
+        console.warn("Session expired. Logging out...");
+        logout();
+        throw new Error("Unauthorized");
+    }
+    return response;
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
     try {
         const res = await fetch(`${API_BASE}/setup-check`);
         const data = await res.json();
@@ -44,55 +42,28 @@ async function checkAuthStatus() {
         console.error("Setup check failed", e);
         checkAdminAuth();
     }
-}
+});
 
-// Headers for API calls
-function getHeaders() {
-    const token = localStorage.getItem('admin_token');
-    return {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-    };
-}
-
-// Fetch with authentication
-async function fetchWithAuth(url, options = {}) {
-    if (!options.headers) options.headers = getHeaders();
-    else Object.assign(options.headers, getHeaders());
-
-    const response = await fetch(url, options);
-
-    if (response.status === 401) {
-        const setupRes = await fetch(`${API_BASE}/setup-check`);
-        const setupData = await setupRes.json();
-        if (setupData.setup_required) {
-            return response;
-        }
-        console.warn("Session expired or unauthorized. Logging out...");
-        logout();
-        throw new Error("Unauthorized");
-    }
-    return response;
-}
-
-// Show section helper
-function showSection(sectionId) {
-    const sections = ['setup-section', 'login-section', 'change-password-section', 'dashboard-section'];
-
-    sections.forEach(id => {
-        const element = document.getElementById(id);
-        if (element) {
-            element.classList.add('hidden');
-        }
-    });
-
-    const targetSection = document.getElementById(sectionId);
-    if (targetSection) {
-        targetSection.classList.remove('hidden');
+function showUnsecuredWarning() {
+    const header = document.querySelector('#dashboard-section header');
+    if (!document.getElementById('unsecured-banner')) {
+        const banner = document.createElement('div');
+        banner.id = 'unsecured-banner';
+        banner.className = 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 px-4 py-3 rounded-xl mb-6 flex items-center justify-between';
+        banner.innerHTML = `
+            <div class="flex items-center gap-3">
+                <span class="text-xl">⚠️</span>
+                <div>
+                    <div class="font-bold">Dashboard Unsecured</div>
+                    <div class="text-xs opacity-70">Anyone can access this page. Set a password to secure it.</div>
+                </div>
+            </div>
+            <button onclick="showSection('setup-section')" class="px-4 py-2 bg-yellow-500 text-black rounded-lg font-bold text-sm hover:brightness-110 transition-all">Secure Dashboard</button>
+        `;
+        header.insertAdjacentElement('afterend', banner);
     }
 }
 
-// Setup admin account
 async function setupAdmin() {
     const username = document.getElementById('setup-username').value;
     const password = document.getElementById('setup-password').value;
@@ -128,16 +99,10 @@ async function setupAdmin() {
     }
 }
 
-// Check admin authentication
 async function checkAdminAuth() {
-    const token = localStorage.getItem('admin_token');
-    if (!token) {
-        showSection('login-section');
-        return;
-    }
-
     try {
         const response = await fetchWithAuth(`${API_BASE}/check-status`);
+
         if (response.ok) {
             const data = await response.json();
             if (data.must_change) {
@@ -147,22 +112,31 @@ async function checkAdminAuth() {
                 loadUsers();
             }
         } else {
-            logout();
+            showSection('login-section');
         }
     } catch (e) {
-        logout();
+        showSection('login-section');
     }
 }
 
-// Login function
+function showSection(id) {
+    // Hide all sections
+    ['setup-section', 'login-section', 'change-password-section', 'dashboard-section'].forEach(sid => {
+        const el = document.getElementById(sid);
+        if (el) el.classList.add('hidden');
+    });
+
+    // Show target section
+    const target = document.getElementById(id);
+    if (target) target.classList.remove('hidden');
+
+    // Close modal if open
+    closeModal();
+}
+
 async function login() {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
-
-    if (!username || !password) {
-        alert("Please enter username and password");
-        return;
-    }
 
     try {
         const response = await fetch(`${API_BASE}/login`, {
@@ -172,36 +146,25 @@ async function login() {
         });
 
         if (response.ok) {
-            const data = await response.json();
-            localStorage.setItem('admin_token', data.access_token);
             checkAdminAuth();
         } else {
-            const errorData = await response.json();
-            alert(errorData.detail || 'Invalid credentials');
+            alert('Invalid credentials');
         }
     } catch (e) {
         console.error(e);
-        alert('Login failed. Please check your connection.');
+        alert('Login failed');
     }
 }
 
-// Logout function
-function logout() {
-    localStorage.removeItem('admin_token');
+async function logout() {
+    await fetch(`${API_BASE}/logout`, { method: 'POST' });
     showSection('login-section');
-    closeModal();
 }
 
-// Change password
 async function changePassword() {
     const oldPassword = document.getElementById('old-password').value;
     const newPassword = document.getElementById('new-password').value;
     const confirmPassword = document.getElementById('confirm-password').value;
-
-    if (!oldPassword || !newPassword || !confirmPassword) {
-        alert("Please fill in all fields");
-        return;
-    }
 
     if (newPassword !== confirmPassword) {
         alert("New passwords do not match!");
@@ -211,10 +174,7 @@ async function changePassword() {
     try {
         const response = await fetchWithAuth(`${API_BASE}/password`, {
             method: 'PUT',
-            body: JSON.stringify({
-                old_password: oldPassword,
-                new_password: newPassword
-            })
+            body: JSON.stringify({ old_password: oldPassword, new_password: newPassword })
         });
 
         if (response.ok) {
@@ -225,27 +185,16 @@ async function changePassword() {
             alert(data.detail || "Failed to change password");
         }
     } catch (e) {
-        console.error(e);
         alert("Error changing password");
     }
 }
 
-// Load users table
 async function loadUsers() {
     try {
         const response = await fetchWithAuth(`${API_BASE}/users`);
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
         const users = await response.json();
+
         const tbody = document.getElementById('users-table-body');
-
-        if (!tbody) {
-            console.error('Users table body not found');
-            return;
-        }
-
         tbody.innerHTML = '';
 
         if (users.length === 0) {
@@ -286,7 +235,7 @@ async function loadUsers() {
                 </td>
                 <td class="p-4 text-xs opacity-60">${lastLogin}</td>
                 <td class="p-4">
-                    <button onclick="viewUserDetails('${user.api_id}')" 
+                    <button onclick="showUserDetails('${user.api_id}')" 
                         class="px-4 py-1.5 bg-brand/10 text-brand hover:bg-brand hover:text-white rounded-lg text-xs font-bold transition-all border border-brand/20">
                         View Details
                     </button>
@@ -294,14 +243,14 @@ async function loadUsers() {
             `;
             tbody.appendChild(tr);
         });
-    } catch (error) {
-        console.error("Failed to load users:", error);
+    } catch (e) {
+        console.error("Failed to load users", e);
         const tbody = document.getElementById('users-table-body');
         if (tbody) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="5" class="p-8 text-center text-red-400">
-                        Error loading users: ${error.message}
+                        Error loading users: ${e.message}
                     </td>
                 </tr>
             `;
@@ -309,17 +258,12 @@ async function loadUsers() {
     }
 }
 
-// View user details - FIXED FUNCTION
-async function viewUserDetails(apiId) {
-    console.log('Viewing details for API ID:', apiId);
+// --- User Details Modal ---
+async function showUserDetails(apiId) {
+    console.log('Showing details for API ID:', apiId);
 
     const modal = document.getElementById('details-modal');
     const content = document.getElementById('modal-content-body');
-
-    if (!modal || !content) {
-        console.error('Modal elements not found');
-        return;
-    }
 
     // Show loading state
     content.innerHTML = `
@@ -330,65 +274,35 @@ async function viewUserDetails(apiId) {
     `;
 
     // Show modal
+    modal.classList.remove('hidden');
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
 
     try {
-        // Try multiple API endpoints
-        let userData = null;
-        let error = null;
+        // Fetch user details
+        const response = await fetchWithAuth(`${API_BASE}/users/${apiId}/details`);
 
-        // Try endpoint 1
-        try {
-            const response = await fetchWithAuth(`${API_BASE}/users/${apiId}`);
-            if (response.ok) {
-                userData = await response.json();
-                console.log('Data from /users/:apiId:', userData);
-            }
-        } catch (e) {
-            error = e;
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${await response.text()}`);
         }
 
-        // Try endpoint 2 if first failed
-        if (!userData) {
-            try {
-                const response = await fetchWithAuth(`${API_BASE}/user/${apiId}`);
-                if (response.ok) {
-                    userData = await response.json();
-                    console.log('Data from /user/:apiId:', userData);
-                }
-            } catch (e) {
-                error = e;
-            }
-        }
+        const userData = await response.json();
+        console.log('User data received:', userData);
 
-        // Try endpoint 3 if still no data
-        if (!userData) {
-            try {
-                const response = await fetchWithAuth(`${API_BASE}/users/${apiId}/details`);
-                if (response.ok) {
-                    userData = await response.json();
-                    console.log('Data from /users/:apiId/details:', userData);
-                }
-            } catch (e) {
-                error = e;
-            }
-        }
-
-        // If still no data, use fallback
-        if (!userData) {
-            throw new Error('Could not fetch user data from any endpoint');
-        }
-
-        // Display the data
+        // Format the data for display
         displayUserDetails(userData, apiId);
 
     } catch (error) {
-        console.error('Error fetching user details:', error);
+        console.error('Error loading user details:', error);
 
-        // Show fallback data
+        // Show error state
         content.innerHTML = `
             <div class="space-y-6">
+                <div class="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-xl">
+                    <div class="font-bold mb-2">⚠️ Failed to Load Details</div>
+                    <div class="text-sm opacity-70">${error.message}</div>
+                </div>
+                
                 <div class="bg-white/5 p-4 rounded-2xl border border-white/5 space-y-3">
                     <div class="flex justify-between items-center">
                         <span class="text-xs font-bold uppercase tracking-wider opacity-60">API ID</span>
@@ -400,37 +314,20 @@ async function viewUserDetails(apiId) {
                         <span class="text-green-500 font-semibold">Active</span>
                     </div>
                 </div>
-                
-                <div class="bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 p-4 rounded-xl">
-                    <div class="font-bold mb-2">⚠️ API Connection Issue</div>
-                    <div class="text-sm opacity-70">Could not fetch full details. Check backend API endpoints.</div>
-                    <div class="text-xs mt-2 opacity-50">Tried endpoints: 
-                        ${API_BASE}/users/${apiId}, 
-                        ${API_BASE}/user/${apiId}, 
-                        ${API_BASE}/users/${apiId}/details
-                    </div>
-                </div>
-                
-                <div class="text-sm opacity-60 italic">
-                    Error: ${error.message}
-                </div>
             </div>
         `;
     }
 }
 
-// Display user details in modal
 function displayUserDetails(data, apiId) {
     const content = document.getElementById('modal-content-body');
 
     // Extract data with fallbacks
-    const apiHash = data.api_hash || data.hash || 'Not available';
-    const firstName = data.first_name || data.name || 'Unknown';
+    const apiHash = data.api_hash || 'Not available';
+    const firstName = data.first_name || 'Unknown';
     const username = data.username ? `@${data.username}` : 'Not set';
     const keywords = data.keywords || [];
-    const isOnline = data.is_online || false;
-    const status = isOnline ? 'Online' : 'Offline';
-    const statusColor = isOnline ? 'text-green-500' : 'text-red-500';
+    const lastLogin = data.last_login ? new Date(data.last_login).toLocaleString() : 'Never';
 
     let modalHTML = `
         <div class="space-y-6">
@@ -452,8 +349,8 @@ function displayUserDetails(data, apiId) {
                 </div>
                 <div class="border-t border-white/5"></div>
                 <div class="flex justify-between items-center">
-                    <span class="text-xs font-bold uppercase tracking-wider opacity-60">Status</span>
-                    <span class="${statusColor} font-semibold">${status}</span>
+                    <span class="text-xs font-bold uppercase tracking-wider opacity-60">Last Login</span>
+                    <span class="text-indigo-300">${lastLogin}</span>
                 </div>
             </div>
             
@@ -466,7 +363,7 @@ function displayUserDetails(data, apiId) {
             </div>
     `;
 
-    // Add Keywords section if available
+    // Add Keywords section
     if (keywords.length > 0) {
         modalHTML += `
             <div>
@@ -477,18 +374,18 @@ function displayUserDetails(data, apiId) {
                     ${keywords.map(k => `
                         <div class="bg-white/5 p-4 rounded-2xl border border-white/5 hover:bg-white/10 transition-all">
                             <div class="flex items-center justify-between mb-2">
-                                <b class="text-indigo-300">/${k.keyword || k.name || 'keyword'}</b>
+                                <b class="text-indigo-300">/${k.keyword || 'keyword'}</b>
                                 <span class="text-xs opacity-50">Trigger</span>
                             </div>
                             <div class="text-sm opacity-70 leading-relaxed bg-black/10 p-2 rounded-lg">
-                                ${k.reply || k.response || 'No reply set'}
+                                ${k.reply || 'No reply set'}
                             </div>
                         </div>
                     `).join('')}
                 </div>
             </div>
         `;
-    } else if (data.has_keywords === false || data.keywords === null) {
+    } else {
         modalHTML += `
             <div class="text-center py-8 space-y-4 bg-white/5 rounded-2xl border border-white/5">
                 <div class="text-4xl opacity-30">📭</div>
@@ -501,34 +398,31 @@ function displayUserDetails(data, apiId) {
     content.innerHTML = modalHTML;
 }
 
-// Close modal function
 function closeModal() {
     const modal = document.getElementById('details-modal');
     if (modal) {
+        modal.classList.add('hidden');
         modal.classList.remove('active');
         document.body.style.overflow = 'auto';
     }
 }
 
-// Show unsecured warning
-function showUnsecuredWarning() {
-    const header = document.querySelector('#dashboard-section header');
-    if (!header) return;
+// Add modal close events
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('details-modal');
+    if (modal) {
+        // Close when clicking outside
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
 
-    if (!document.getElementById('unsecured-banner')) {
-        const banner = document.createElement('div');
-        banner.id = 'unsecured-banner';
-        banner.className = 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 px-4 py-3 rounded-xl mb-6 flex items-center justify-between';
-        banner.innerHTML = `
-            <div class="flex items-center gap-3">
-                <span class="text-xl">⚠️</span>
-                <div>
-                    <div class="font-bold">Dashboard Unsecured</div>
-                    <div class="text-xs opacity-70">Anyone can access this page. Set a password to secure it.</div>
-                </div>
-            </div>
-            <button onclick="showSection('setup-section')" class="px-4 py-2 bg-yellow-500 text-black rounded-lg font-bold text-sm hover:brightness-110 transition-all">Secure Dashboard</button>
-        `;
-        header.insertAdjacentElement('afterend', banner);
+        // Close with Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
     }
-}
+});

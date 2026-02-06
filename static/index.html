@@ -85,6 +85,22 @@
             background: rgba(255, 255, 255, 0.1);
             border-radius: 99px;
         }
+
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .scale-in {
+            animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
     </style>
 </head>
 
@@ -96,7 +112,8 @@
         <div id="login-screen"
             class="glass w-full max-auto max-w-[420px] p-10 rounded-[24px] text-center transform transition-all">
             <h1 class="text-4xl font-bold mb-2">Bot Access</h1>
-            <p class="text-indigo-200/60 mb-8 text-[0.95rem]">Enter your Telegram credentials to manage the bot.</p>
+            <p class="text-indigo-200/60 mb-8 text-[0.95rem]">Enter your Telegram credentials to modify your Telegram
+                Id.</p>
 
             <div id="step-1" class="space-y-5">
                 <div class="text-left">
@@ -111,11 +128,20 @@
                     <input type="password" id="api-hash" placeholder="••••••••••••"
                         class="w-full bg-surface/80 border border-border rounded-[14px] px-5 py-3.5 focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/20 transition-all">
                 </div>
+
+                <!-- Help Link -->
+                <div class="text-center pt-1">
+                    <button onclick="toggleHelpModal(true)"
+                        class="text-brand text-xs font-semibold hover:underline flex items-center justify-center gap-1 mx-auto">
+                        <span>❔</span> How to get API ID and Hash?
+                    </button>
+                </div>
+
                 <div class="hidden text-left" id="phone-group">
                     <label
                         class="block text-xs font-semibold uppercase tracking-wider text-indigo-200/60 mb-2 ml-3">Phone
                         Number</label>
-                    <input type="text" id="phone-number" placeholder="+1234567890"
+                    <input type="text" id="phone-number" placeholder="8801XXXXXXXX"
                         class="w-full bg-surface/80 border border-border rounded-[14px] px-5 py-3.5 focus:outline-none focus:border-brand focus:ring-4 focus:ring-brand/20 transition-all">
                 </div>
                 <button onclick="handleAuth()" id="btn-auth"
@@ -153,6 +179,55 @@
             </div>
 
             <div id="login-error" class="hidden text-red-500 mt-4 text-sm"></div>
+        </div>
+    </div>
+
+    <!-- API Help Modal Overlay -->
+    <div id="help-modal-overlay"
+        class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div
+            class="glass w-full max-w-[500px] p-8 rounded-[32px] max-h-[90vh] overflow-y-auto custom-scrollbar relative shadow-2xl scale-in pointer-events-auto">
+            <button onclick="toggleHelpModal(false)"
+                class="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 transition-colors text-xl">×</button>
+
+            <h2 class="text-2xl font-bold mb-6 flex items-center gap-2">
+                <span class="text-brand">📘</span>
+                How to get API ID/Hash?
+            </h2>
+
+            <div class="space-y-4 text-[0.9rem] leading-relaxed text-indigo-100/80 text-left">
+                <div class="p-4 bg-brand/10 border border-brand/20 rounded-2xl">
+                    <p class="font-semibold text-brand mb-1">ধাপ ১: টেলিগ্রাম পোর্টালে যান</p>
+                    <p>আপনার ব্রাউজার থেকে <a href="https://my.telegram.org" target="_blank"
+                            class="text-white underline decoration-brand/50 hover:text-brand transition-colors font-bold">my.telegram.org</a>
+                        ওয়েবসাইটটি ওপেন করুন।</p>
+                </div>
+
+                <div class="p-4 bg-white/5 border border-white/5 rounded-2xl">
+                    <p class="font-semibold text-indigo-200 mb-1">ধাপ ২: লগইন করুন</p>
+                    <p>আপনার ফোন নম্বর দিয়ে লগইন করুন। কোডটি সরাসরি টেলিগ্রাম অ্যাপে আসবে। ⚠️ মনে রাখবেন, সব সময় ফোন
+                        নম্বরটি এই ফরম্যাটে দিতে হবে —880 দিয়ে শুরু করতে হবে।📌 উদাহরণ: 88019XXXXXXXX </p>
+                </div>
+
+                <div class="p-4 bg-white/5 border border-white/5 rounded-2xl">
+                    <p class="font-semibold text-indigo-200 mb-1">ধাপ ৩: API tools-এ যান</p>
+                    <p>লগইন শেষ হলে "API development tools" অপশনে ক্লিক করুন।</p>
+                </div>
+
+                <div class="p-4 bg-white/5 border border-white/5 rounded-2xl">
+                    <p class="font-semibold text-indigo-200 mb-1">ধাপ ৪: অ্যাপ তৈরি করুন</p>
+                    <p>'App title' এবং 'Short name' ঘরে যেকোনো নাম লিখে "Create application"-এ ক্লিক করুন।</p>
+                </div>
+
+                <div class="p-4 bg-green-500/10 border border-green-500/20 rounded-2xl">
+                    <p class="font-semibold text-green-400 mb-1">ধাপ ৫: কপি করুন</p>
+                    <p>সেখান থেকে আপনার <b>api_id</b> এবং <b>api_hash</b> কপি করে এখানে ব্যবহার করুন।</p>
+                </div>
+            </div>
+
+            <button onclick="toggleHelpModal(false)"
+                class="w-full mt-6 bg-brand/80 hover:bg-brand py-3.5 rounded-2xl font-semibold transition-all shadow-lg active:scale-95">বুঝেছি,
+                ধন্যবাদ!</button>
         </div>
     </div>
 
@@ -263,7 +338,7 @@
                 </div>
 
                 <div id="messages-container"
-                    class="flex-1 overflow-y-auto custom-scrollbar p-5 flex flex-col gap-2 z-10"></div>
+                    class="flex-1 overflow-y-auto custom-scrollbar p-5 flex flex-col gap-1 z-10"></div>
 
                 <div class="p-3 bg-surface/80 backdrop-blur-md z-10 flex flex-col gap-2 border-t border-white/5">
                     <!-- File Preview -->
